@@ -34,5 +34,46 @@ func main() {
 
 	fmt.Printf("queue ready: %s\n", q.Name)
 	// keep the client alive for now (e.g., read from stdin or block)
-	select {}
+
+	gamelogic.PrintClientHelp()
+	gamestate := gamelogic.NewGameState(username)
+
+	for {
+		words := gamelogic.GetInput()
+		if len(words) == 0 {
+			continue
+		}
+		cmd := words[0]
+		switch cmd {
+		case "spawn":
+			fmt.Println("player is attempting to spawn a new unit")
+			if err := gamestate.CommandSpawn(words); err != nil {
+				fmt.Printf("spawn error: %v\n", err)
+				continue
+			}
+
+		case "move":
+			mv, err := gamestate.CommandMove(words)
+			if err != nil {
+				fmt.Printf("move error: %v\n", err)
+				continue
+			}
+			fmt.Printf("move successful: %d unit(s) to %s\n", len(mv.Units), mv.ToLocation)
+
+		case "status":
+			gamestate.CommandStatus()
+
+		case "help":
+			gamelogic.PrintClientHelp()
+
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("unknown command:", cmd)
+		}
+	}
 }
