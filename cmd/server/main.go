@@ -25,7 +25,14 @@ func main() {
 	}
 	defer ch.Close()
 
-	// go
+	newChan, q, err := pubsub.DeclareAndBind(conn, routing.ExchangePerilTopic, routing.GameLogSlug, routing.GameLogSlug+".*", pubsub.QueueDurable)
+	if err != nil {
+		log.Fatalf("declare/bind failed: %v", err)
+	}
+	defer newChan.Close()
+
+	fmt.Printf("queue ready: %s\n", q.Name)
+
 	gamelogic.PrintServerHelp()
 	for {
 		words := gamelogic.GetInput()
