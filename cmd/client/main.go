@@ -38,6 +38,12 @@ func main() {
 	gamelogic.PrintClientHelp()
 	gamestate := gamelogic.NewGameState(username)
 
+	qName := fmt.Sprintf("pause.%s", username)
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, qName, routing.PauseKey, pubsub.QueueTransient, handlerPause(gamestate))
+	if err != nil {
+		log.Fatalf("subscribe failed: %v", err)
+	}
+
 	for {
 		words := gamelogic.GetInput()
 		if len(words) == 0 {
@@ -75,5 +81,12 @@ func main() {
 		default:
 			fmt.Println("unknown command:", cmd)
 		}
+	}
+}
+
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
+	return func(ps routing.PlayingState) {
+		defer fmt.Print("> ")
+		gs.HandlePause(ps)
 	}
 }
