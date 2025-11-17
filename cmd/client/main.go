@@ -33,13 +33,19 @@ func main() {
 	defer ch.Close()
 
 	fmt.Printf("queue ready: %s\n", q.Name)
-	// keep the client alive for now (e.g., read from stdin or block)
 
 	gamelogic.PrintClientHelp()
 	gamestate := gamelogic.NewGameState(username)
 
-	qName := fmt.Sprintf("pause.%s", username)
+	qName := fmt.Sprintf("%s.%s", routing.PauseKey, username)
 	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, qName, routing.PauseKey, pubsub.QueueTransient, handlerPause(gamestate))
+	if err != nil {
+		log.Fatalf("subscribe failed: %v", err)
+	}
+
+	qName = fmt.Sprintf("%s.%s", routing.ArmyMovesPrefix, username)
+	binding := routing.ArmyMovesPrefix + ".*"
+	err = pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, qName, binding, pubsub.QueueTransient, handlerMove(gamestate))
 	if err != nil {
 		log.Fatalf("subscribe failed: %v", err)
 	}
@@ -63,6 +69,12 @@ func main() {
 			if err != nil {
 				fmt.Printf("move error: %v\n", err)
 				continue
+			}
+			rk := fmt.Sprintf("%s.%s", routing.ArmyMovesPrefix, username)
+			if err := pubsub.PublishJSON(ch, routing.ExchangePerilTopic, rk, mv); err != nil {
+				fmt.Printf("publish error: %v\n", err)
+			} else {
+				fmt.Println("published move")
 			}
 			fmt.Printf("move successful: %d unit(s) to %s\n", len(mv.Units), mv.ToLocation)
 
@@ -88,5 +100,12 @@ func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
 	return func(ps routing.PlayingState) {
 		defer fmt.Print("> ")
 		gs.HandlePause(ps)
+	}
+}
+
+func handlerMove(gs *gamelogic.GameState) func(gamelogic.ArmyMove) {
+	return func(mv gamelogic.ArmyMove) {
+		defer fmt.Print("> ")
+		gs.HandleMove(mv)
 	}
 }
