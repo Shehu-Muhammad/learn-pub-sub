@@ -51,7 +51,9 @@ func DeclareAndBind(
 		queueType == QueueTransient,
 		queueType == QueueTransient,
 		false,
-		nil,
+		amqp.Table{
+			"x-dead-letter-exchange": "peril_dlx",
+		},
 	)
 	if err != nil {
 		ch.Close()
