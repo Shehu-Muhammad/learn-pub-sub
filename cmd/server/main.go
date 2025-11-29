@@ -25,13 +25,17 @@ func main() {
 	}
 	defer ch.Close()
 
-	newChan, q, err := pubsub.DeclareAndBind(conn, routing.ExchangePerilTopic, routing.GameLogSlug, routing.GameLogSlug+".*", pubsub.QueueDurable)
+	err = pubsub.SubscribeGob(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		routing.GameLogSlug+".*",
+		pubsub.QueueDurable,
+		handlerLogs(),
+	)
 	if err != nil {
-		log.Fatalf("declare/bind failed: %v", err)
+		log.Fatalf("could not start consuming logs: %v", err)
 	}
-	defer newChan.Close()
-
-	fmt.Printf("queue ready: %s\n", q.Name)
 
 	gamelogic.PrintServerHelp()
 	for {
@@ -57,5 +61,20 @@ func main() {
 		default:
 			log.Println("unknown command:", cmd)
 		}
+	}
+}
+
+func handlerLogs() func(routing.GameLog) pubsub.Acktype {
+	return func(l routing.GameLog) pubsub.Acktype {
+		// 1. defer re-printing the prompt
+		defer fmt.Print("> ")
+		// 2. call gamelogic.WriteLog(l)
+		err := gamelogic.WriteLog(l)
+		// 3. return Ack or some Nack on error
+		if err != nil {
+			return pubsub.NackDiscard
+		}
+		return pubsub.Ack
+
 	}
 }
